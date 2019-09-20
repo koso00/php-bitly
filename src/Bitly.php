@@ -6,6 +6,7 @@ use LeadThread\Bitly\Exceptions\BitlyAuthException;
 use LeadThread\Bitly\Exceptions\BitlyErrorException;
 use LeadThread\Bitly\Exceptions\BitlyRateLimitException;
 use GuzzleHttp\Client;
+use React\EventLoop\LoopInterface;
 
 class Bitly
 {
@@ -23,7 +24,7 @@ class Bitly
      * @param string $host    The Host URL
      * @param string $client  The Client instance that will handle the http request
      */
-    public function __construct($token, $version = self::V3, $host = "api-ssl.bitly.com", Client $client = null){
+    public function __construct(LoopInterface $loop,$token, $version = self::V3, $host = "api-ssl.bitly.com", Client $client = null){
         $this->client = $client;
         $this->token = $token;
         $this->version = $version;
