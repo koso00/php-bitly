@@ -16,7 +16,7 @@ class Bitly
     protected $version;
     protected $client;
     protected $token;
-
+    protected $loop;
     /**
      * Creates a Bitly instance that can register and unregister webhooks with the API
      * @param string $token   The API token to authenticate with
@@ -26,6 +26,7 @@ class Bitly
      */
     public function __construct(LoopInterface $loop,$token, $version = self::V3, $host = "api-ssl.bitly.com", Client $client = null){
         $this->client = $client;
+        $this->loop = $loop;
         $this->token = $token;
         $this->version = $version;
         $this->host = $host;
@@ -38,10 +39,13 @@ class Bitly
         }
 
         $url = $this->fixUrl($url, $encode);
+        $deferred = new \React\Promise\Deferred();
 
-        $data = $this->exec($this->buildRequestUrl($url));
-            
-        return $data['data']['url'];
+        $this->exec($this->buildRequestUrl($url))->done(function($data)use($deferred){
+            $deferred->resolve($data['data']['url']);
+        });
+        $promise = $deferred->promise();
+        return $promise;
     }
 
     /**
@@ -109,7 +113,10 @@ class Bitly
     protected function getRequest(){
         $client = $this->client;
         if(!$client instanceof Client){
-            $client = new Client();
+            $handler = new \WyriHaximus\React\GuzzlePsr7\HttpClientAdapter($this->loop);
+            $client = new Client([
+                'handler' => \GuzzleHttp\HandlerStack::create($handler)
+            ]);
         }
         return $client;
     }
@@ -122,7 +129,13 @@ class Bitly
     protected function exec($url)
     {
         $client = $this->getRequest();
-        $response = $client->request('GET',$url);
-        return $this->handleResponse($response->getBody());
+        $deferred = new \React\Promise\Deferred();
+
+       
+        $response = $client->getAsync($url)->then(\Closure::bind(function($response)use($deferred){
+            $deferred->resolve($this->handleResponse($response->getBody()));
+        },$this));
+        $promise = $deferred->promise();
+        return $promise;
     }
 }
